@@ -1,0 +1,18 @@
+[project]
+name = "garmin-simple"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Hugo Ouwerkerk",email = "hah.ouwerkerk@outlook.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "garminconnect (>=0.2.30,<0.3.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
