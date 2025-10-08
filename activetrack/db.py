@@ -74,6 +74,7 @@ def fetch_latest_snapshot() -> Optional[sqlite3.Row]:
     return row
 
 def fetch_snapshots(limit: int | None = None) -> list[sqlite3.Row]:
+    """Return a list of stored snapshots, most recent first."""
     query = (
         "SELECT snapshot_date, payload FROM daily_snapshots "
         "ORDER BY snapshot_date DESC"
@@ -87,6 +88,5 @@ def fetch_snapshots(limit: int | None = None) -> list[sqlite3.Row]:
 
 def delete_all_snapshots() -> None:
     """Remove every stored snapshot."""
-
     with db_session() as connection:
         connection.execute("DELETE FROM daily_snapshots")

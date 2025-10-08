@@ -1,20 +1,14 @@
 import json
+import os
 from datetime import date
-
 from flask import Flask, jsonify, render_template
 from flask_apscheduler import APScheduler
-
-from activetrack.db import (
-    delete_all_snapshots,
-    fetch_snapshots,
-    get_connection,
-)
+from activetrack.db import delete_all_snapshots, fetch_snapshots, get_connection
 from activetrack import fetch_overview
 from activetrack.sync import run as run_sync, seed_range
 
 
 scheduler = APScheduler()
-
 
 def ensure_database() -> None:
     """Create the placeholder table if needed."""
@@ -41,6 +35,10 @@ def create_app() -> Flask:
     ensure_database()
 
     app = Flask(__name__)
+    app.config.update(
+        DEBUG=os.getenv("FLASK_DEBUG", "0") == "1",
+        SCHEDULER_TIMEZONE=os.getenv("SCHEDULER_TIMEZONE") or "UTC",
+    )
 
     scheduler.init_app(app)
     if not scheduler.get_job("nightly_garmin_sync"):
@@ -54,14 +52,8 @@ def create_app() -> Flask:
     if not scheduler.running:
         scheduler.start()
 
-    @app.get("/health")
-    def healthcheck() -> tuple[dict[str, str], int]:
-        """Simple endpoint so external monitors know the app is alive."""
-        return jsonify(status="ok"), 200
-
     @app.get("/")
     def index() -> str:
-        """Render cached snapshots, falling back to live data when none stored."""
         rows = fetch_snapshots()
         snapshots = []
 
@@ -126,4 +118,6 @@ def create_app() -> Flask:
 
 
 if __name__ == "__main__":
-    create_app().run(debug=True)
+    app = create_app()
+    app.run()
+
