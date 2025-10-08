@@ -1,7 +1,19 @@
-from flask import Flask, jsonify, render_template
+import json
+from datetime import date
 
-from db import get_connection
+from flask import Flask, jsonify, render_template
+from flask_apscheduler import APScheduler
+
+from activetrack.db import (
+    delete_all_snapshots,
+    fetch_snapshots,
+    get_connection,
+)
 from activetrack import fetch_overview
+from activetrack.sync import run as run_sync, seed_range
+
+
+scheduler = APScheduler()
 
 
 def ensure_database() -> None:
@@ -11,10 +23,16 @@ def ensure_database() -> None:
             """
             CREATE TABLE IF NOT EXISTS daily_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                snapshot_date TEXT NOT NULL,
+                snapshot_date TEXT NOT NULL UNIQUE,
                 payload JSON NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_snapshots_date
+            ON daily_snapshots(snapshot_date)
             """
         )
 
@@ -24,34 +42,85 @@ def create_app() -> Flask:
 
     app = Flask(__name__)
 
+    scheduler.init_app(app)
+    if not scheduler.get_job("nightly_garmin_sync"):
+        scheduler.add_job(
+            id="nightly_garmin_sync",
+            func=run_sync,
+            trigger="cron",
+            hour=1,
+            minute=0,
+        )
+    if not scheduler.running:
+        scheduler.start()
+
     @app.get("/health")
     def healthcheck() -> tuple[dict[str, str], int]:
-        """for verify the container is alive."""
+        """Simple endpoint so external monitors know the app is alive."""
         return jsonify(status="ok"), 200
 
     @app.get("/")
     def index() -> str:
-        try:
-            overview = fetch_overview()
-        except Exception as error:
-            return (
-                render_template(
-                    "index.html",
-                    full_name="Activetrack",
-                    daily_metrics=[],
-                    activity_groups={},
-                    error_message=str(error),
-                ),
-                500,
+        """Render cached snapshots, falling back to live data when none stored."""
+        rows = fetch_snapshots()
+        snapshots = []
+
+        for row in rows:
+            try:
+                payload = json.loads(row["payload"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+
+            snapshots.append(
+                {
+                    "snapshot_date": row["snapshot_date"],
+                    "full_name": payload.get("full_name", "Activetrack"),
+                    "daily_metrics": payload.get("daily_metrics", []),
+                    "activity_groups": payload.get("activity_groups", {}),
+                }
             )
 
-        return render_template(
-            "index.html",
-            full_name=overview["full_name"],
-            daily_metrics=overview["daily_metrics"],
-            activity_groups=overview["activity_groups"],
-            error_message=None,
+        if snapshots:
+            latest = snapshots[0]
+
+            return render_template(
+                "index.html",
+                full_name=latest["full_name"],
+                daily_metrics=latest["daily_metrics"],
+                activity_groups=latest["activity_groups"],
+                error_message=None,
+                snapshots=snapshots,
+            )
+
+
+        return (
+            render_template(
+                "index.html",
+                full_name="Activetrack",
+                daily_metrics=[],
+                activity_groups={},
+                error_message="no data found",
+                snapshots=[],
+            ),
+            500,
         )
+
+
+
+    @app.post("/sync")
+    def sync_now() -> tuple[dict[str, str], int]:
+        run_sync()
+        return jsonify(status="ok"), 200
+
+    @app.post("/seed-week")
+    def seed_week() -> tuple[dict[str, str], int]:
+        seed_range(days=7)
+        return jsonify(status="seeded"), 200
+
+    @app.delete("/snapshots")
+    def clear_snapshots() -> tuple[dict[str, str], int]:
+        delete_all_snapshots()
+        return jsonify(status="cleared"), 200
 
     return app
 

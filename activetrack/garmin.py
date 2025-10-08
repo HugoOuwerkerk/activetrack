@@ -1,3 +1,7 @@
+"""Garmin data helpers matching the original standalone script structure."""
+
+from __future__ import annotations
+
 import os
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
@@ -6,14 +10,42 @@ from dotenv import load_dotenv
 from garminconnect import Garmin
 
 
-# not realy needed now but in case Garmin changes the structure again
+# not really needed now but in case Garmin changes the structure again
 def _get_summary_data(raw_summary):
     if isinstance(raw_summary, dict):
         if isinstance(raw_summary.get("summary"), dict):
             return raw_summary["summary"]
         return raw_summary
     return {}
-    
+
+
+def _resolve_day_str(target_date: Optional[date | str]) -> str:
+    if target_date is None:
+        return date.today().isoformat()
+    if isinstance(target_date, date):
+        return target_date.isoformat()
+    return target_date
+
+
+def _collect_overview(api: Garmin, day_str: str, activity_limit: int) -> Dict[str, Any]:
+    today_summary = api.get_user_summary(day_str)
+    activities = api.get_activities(0, activity_limit)
+    stats = DailyStats(today_summary)
+    activity_overview = ActivityOverview(activities)
+    full_name = api.get_full_name() or "Unknown"
+
+    return {
+        "full_name": full_name,
+        "daily_metrics": stats.as_pairs(),
+        "activity_groups": activity_overview.grouped(),
+    }
+
+
+def _ensure_credentials(email: Optional[str], password: Optional[str]) -> None:
+    if not email or not password:
+        raise RuntimeError("GARMIN_EMAIL and GARMIN_PASSWORD must be set in environment")
+
+
 class DailyStats:
     def __init__(self, raw_summary):
         data = _get_summary_data(raw_summary)
@@ -22,7 +54,7 @@ class DailyStats:
         if isinstance(raw_summary, dict) and isinstance(raw_summary.get("stressDetails"), dict):
             stress_details = raw_summary["stressDetails"]
 
-        # Distance shows up in different keys depending on device so to be save getting both
+        # Distance shows up in different keys depending on device so to be safe getting both
         distance_meters = data.get("totalDistanceMeters") or data.get("distanceInMeters")
 
         self.steps = data.get("totalSteps") or data.get("steps")
@@ -37,7 +69,7 @@ class DailyStats:
         # same as distance, activeKcal or wellnessActiveKilocalories
         self.active_kcal = data.get("activeKilocalories") or data.get("wellnessActiveKilocalories")
         self.total_kcal = data.get("totalKilocalories")
-        self._metrics = [
+        self._metrics: List[Tuple[str, Optional[Any]]] = [
             ("Steps", self.steps),
             ("Resting heart rate", self.resting_hr),
             ("Min heart rate", self.min_hr),
@@ -117,11 +149,6 @@ class ActivityOverview:
         return dict(sorted(grouped.items()))
 
 
-def _ensure_credentials(email: Optional[str], password: Optional[str]) -> None:
-    if not email or not password:
-        raise RuntimeError("GARMIN_EMAIL and GARMIN_PASSWORD must be set in environment")
-
-
 def fetch_overview(target_date: Optional[date | str] = None, activity_limit: int = 5) -> Dict[str, Any]:
     load_dotenv()
 
@@ -133,24 +160,8 @@ def fetch_overview(target_date: Optional[date | str] = None, activity_limit: int
     api.login()
 
     try:
-        if target_date is None:
-            day_str = date.today().isoformat()
-        elif isinstance(target_date, date):
-            day_str = target_date.isoformat()
-        else:
-            day_str = target_date
-
-        today_summary = api.get_user_summary(day_str)
-        activities = api.get_activities(0, activity_limit)
-        stats = DailyStats(today_summary)
-        activity_overview = ActivityOverview(activities)
-        full_name = api.get_full_name() or "Unknown"
-
-        return {
-            "full_name": full_name,
-            "daily_metrics": stats.as_pairs(),
-            "activity_groups": activity_overview.grouped(),
-        }
+        day_str = _resolve_day_str(target_date)
+        return _collect_overview(api, day_str, activity_limit)
     finally:
         try:
             api.logout()
@@ -158,5 +169,16 @@ def fetch_overview(target_date: Optional[date | str] = None, activity_limit: int
             pass
 
 
-if __name__ == "__main__":
-    main()
+def fetch_overview_with_session(api: Garmin, target_date: Optional[date | str] = None, activity_limit: int = 5,) -> Dict[str, Any]:
+    day_str = _resolve_day_str(target_date)
+    return _collect_overview(api, day_str, activity_limit)
+
+
+def login_client() -> Garmin:
+    load_dotenv()
+    email = os.getenv("GARMIN_EMAIL")
+    password = os.getenv("GARMIN_PASSWORD")
+    _ensure_credentials(email, password)
+    api = Garmin(email, password)
+    api.login()
+    return api
