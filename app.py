@@ -100,7 +100,7 @@ def create_app() -> Flask:
                 error_message="Showing live data — no cached snapshots yet.",
                 snapshots=[live_snapshot],
             )
-        except Exception as error:  # pragma: no cover - surface error to UI
+        except Exception as error:
             return (
                 render_template(
                     "index.html",

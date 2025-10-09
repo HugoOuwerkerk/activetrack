@@ -1,15 +1,18 @@
-[project]
+[tool.poetry]
 name = "activetrack"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "garminconnect (>=0.2.30,<0.3.0)",
-    "python-dotenv (>=1.1.1,<2.0.0)",
-    "flask (>=3.0.0,<4.0.0)",
-    "flask-apscheduler (>=1.13.0,<2.0.0)"
-]
+packages = [{ include = "activetrack" }]
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+garminconnect = ">=0.2.30,<0.3.0"
+python-dotenv = ">=1.1.1,<2.0.0"
+flask = ">=3.0.0,<4.0.0"
+flask-apscheduler = ">=1.13.0,<2.0.0"
+gunicorn = ">=21.2.0,<22.0.0"
 
 
 [build-system]
