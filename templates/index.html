@@ -25,61 +25,65 @@
         <div class="snapshot-panels">
           {% for snapshot in snapshots %}
             <section class="snapshot-panel" data-index="{{ loop.index0 }}" {% if not loop.first %}hidden{% endif %}>
-              <div class="snapshot-meta">
-                <span><strong>Snapshot:</strong> {{ snapshot.snapshot_date }}</span>
-                <span>
-                  Steps: {{ snapshot.daily_metrics[0][1] if snapshot.daily_metrics else 'n/a' }}
-                </span>
-              </div>
+              <div class="panel-grid">
+                <article class="panel-card snapshot-overview">
+                  <div class="snapshot-meta">
+                    <span><strong>Snapshot:</strong> {{ snapshot.snapshot_date }}</span>
+                    <span>
+                      Steps: {{ snapshot.daily_metrics[0][1] if snapshot.daily_metrics else 'n/a' }}
+                    </span>
+                  </div>
 
-              <div>
-                <h2>Daily overview</h2>
-                <ul>
-                  {% for label, value in snapshot.daily_metrics %}
-                    <li>
-                      <span class="metric-label">{{ label }}:</span>
-                      {% if value is none %}
-                        not available
-                      {% elif value is float %}
-                        {{ '%.2f'|format(value) }}
-                      {% else %}
-                        {{ value }}
-                      {% endif %}
-                    </li>
-                  {% endfor %}
-                </ul>
-              </div>
-
-              <div>
-                <h2>Recent activities by type</h2>
-                {% if snapshot.activity_groups %}
-                  {% for activity_type, activities in snapshot.activity_groups.items() %}
-                    <h3 class="activity-type">{{ activity_type }}</h3>
+                  <div>
+                    <h2>Daily overview</h2>
                     <ul>
-                      {% for activity in activities %}
-                        <li class="activity-item">
-                          {{ activity.start or 'unknown start' }} -
-                          {% if activity.distance_km is not none %}
-                            {{ '%.2f'|format(activity.distance_km) }} km -
+                      {% for label, value in snapshot.daily_metrics %}
+                        <li>
+                          <span class="metric-label">{{ label }}:</span>
+                          {% if value is none %}
+                            not available
+                          {% elif value is float %}
+                            {{ '%.2f'|format(value) }}
                           {% else %}
-                            distance n/a -
+                            {{ value }}
                           {% endif %}
-                          {% if activity.duration_hours is not none %}
-                            {{ '%.2f'|format(activity.duration_hours) }} h -
-                          {% else %}
-                            duration n/a -
-                          {% endif %}
-                          avg HR {{ activity.avg_hr if activity.avg_hr is not none else 'n/a' }} -
-                          max HR {{ activity.max_hr if activity.max_hr is not none else 'n/a' }} -
-                          calories {{ activity.calories if activity.calories is not none else 'n/a' }} -
-                          elev gain {{ activity.elevation_gain if activity.elevation_gain is not none else 'n/a' }} m
                         </li>
                       {% endfor %}
                     </ul>
-                  {% endfor %}
-                {% else %}
-                  <p>No activity data available.</p>
-                {% endif %}
+                  </div>
+                </article>
+
+                <article class="panel-card activities-panel">
+                  <h2>Recent activities by type</h2>
+                  {% if snapshot.activity_groups %}
+                    {% for activity_type, activities in snapshot.activity_groups.items() %}
+                      <h3 class="activity-type">{{ activity_type }}</h3>
+                      <ul>
+                        {% for activity in activities %}
+                          <li class="activity-item">
+                            {{ activity.start or 'unknown start' }} -
+                            {% if activity.distance_km is not none %}
+                              {{ '%.2f'|format(activity.distance_km) }} km -
+                            {% else %}
+                              distance n/a -
+                            {% endif %}
+                            {% if activity.duration_hours is not none %}
+                              {{ '%.2f'|format(activity.duration_hours) }} h -
+                            {% else %}
+                              duration n/a -
+                            {% endif %}
+                            avg HR {{ activity.avg_hr if activity.avg_hr is not none else 'n/a' }} -
+                            max HR {{ activity.max_hr if activity.max_hr is not none else 'n/a' }} -
+                            calories {{ activity.calories if activity.calories is not none else 'n/a' }} -
+                            elev gain {{ activity.elevation_gain if activity.elevation_gain is not none else 'n/a' }} m
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endfor %}
+                  {% else %}
+                    <p>No activity data available.</p>
+                  {% endif %}
+                </article>
               </div>
             </section>
           {% endfor %}

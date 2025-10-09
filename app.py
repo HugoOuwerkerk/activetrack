@@ -84,18 +84,34 @@ def create_app() -> Flask:
                 snapshots=snapshots,
             )
 
-
-        return (
-            render_template(
+        try:
+            overview = fetch_overview()
+            live_snapshot = {
+                "snapshot_date": date.today().isoformat(),
+                "full_name": overview["full_name"],
+                "daily_metrics": overview["daily_metrics"],
+                "activity_groups": overview["activity_groups"],
+            }
+            return render_template(
                 "index.html",
-                full_name="Activetrack",
-                daily_metrics=[],
-                activity_groups={},
-                error_message="no data found",
-                snapshots=[],
-            ),
-            500,
-        )
+                full_name=overview["full_name"],
+                daily_metrics=overview["daily_metrics"],
+                activity_groups=overview["activity_groups"],
+                error_message="Showing live data — no cached snapshots yet.",
+                snapshots=[live_snapshot],
+            )
+        except Exception as error:  # pragma: no cover - surface error to UI
+            return (
+                render_template(
+                    "index.html",
+                    full_name="Activetrack",
+                    daily_metrics=[],
+                    activity_groups={},
+                    error_message=str(error),
+                    snapshots=[],
+                ),
+                500,
+            )
 
 
 
@@ -120,4 +136,3 @@ def create_app() -> Flask:
 if __name__ == "__main__":
     app = create_app()
     app.run()
-

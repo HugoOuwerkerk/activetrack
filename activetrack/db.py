@@ -20,9 +20,6 @@ DB_PATH = Path(os.getenv("ACTIVETRACK_DB_PATH") or DEFAULT_DB_PATH).expanduser()
 def get_connection() -> sqlite3.Connection:
     """
     Return a connection to the SQLite database, creating directories if needed.
-
-    Respects the ``ACTIVETRACK_DB_PATH`` environment variable (e.g. provided via
-    ``.env``); falls back to ``data/activetrack.db`` when unset.
     """
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -35,7 +32,7 @@ def get_connection() -> sqlite3.Connection:
 def db_session() -> Iterator[sqlite3.Connection]:
     """Context manager that yields a connection and commits on success.
 
-    Typical usage patterns::
+    usage:
 
         # Writing a row
         with db_session() as conn:
